@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: docintel}
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector: {matchLabels: {app: docintel}}
+  template:
+    metadata: {labels: {app: docintel}}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001}
+      containers:
+        - name: api
+          image: ghcr.io/example/docintel:replace-me
+          ports: [{containerPort: 8000, name: http}]
+          env:
+            - name: DOCINTEL_API_KEY
+              valueFrom:
+                secretKeyRef: {name: docintel, key: api-key}
+          readinessProbe: {httpGet: {path: /ready, port: http}}
+          livenessProbe: {httpGet: {path: /health, port: http}}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: "1", memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: docintel}
+spec:
+  selector: {app: docintel}
+  ports: [{name: http, port: 80, targetPort: http}]
